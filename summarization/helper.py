@@ -32,8 +32,11 @@ def generate_jsonl(data, prediction_path, model_name,summary_type,data_type):
           df['json_element'].apply(json.loads)
           raw_df = pd.json_normalize(df['json_element'].apply(json.loads))
 
-    raw_df.rename(columns = {'summary':'actual_summary'}, inplace = True)
-    raw_df = raw_df[["text", "actual_summary"]] if data_type == "train" or data_type == "validation" else raw_df["text"]
+    if 'summary' in raw_df.columns:
+        raw_df.rename(columns = {'summary':'actual_summary'}, inplace = True)
+        raw_df = raw_df[["text", "actual_summary"]]
+    else:
+        raw_df=raw_df["text"]
 
     #reading predicted file
     pred_sum = open(
@@ -137,7 +140,7 @@ def get_evaluation_metrics(actuals, predicted):
 
 def create_table(data):
   """
-  convert unput df into jsonl file"""
+  convert input df into jsonl file"""
   columns = list(data.columns)
   child_list = []
   for column in columns:

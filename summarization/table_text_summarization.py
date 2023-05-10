@@ -118,7 +118,7 @@ class Summarizer:
               .values
           )
       else:
-          model_input["context"] = lattice_output["subtable_metadata_str"]
+          model_input["text"] = lattice_output["subtable_metadata_str"]
           model_input["summary"] = " "
 
       model_input.to_json(
@@ -201,7 +201,7 @@ class Summarizer:
             print("validation")
             print("training started")
             # Start the training
-            try:
+            try:       
                 trainer = subprocess.run(
                     model_params,
                     check=True,
