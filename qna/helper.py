@@ -23,10 +23,13 @@ def generate_jsonl(data, prediction_path, model_name, data_type):
           raw_df = json.load(raw_df)
           raw_df=json_normalize(raw_df['data'])
 
-    raw_df=raw_df[["context","question","answers.text"]]    
-    raw_df['answer'] = raw_df['answers.text'].apply(lambda x:" ".join(x))
-    raw_df = raw_df.drop(columns = ['answers.text'])
-
+    if 'answers.text' in raw_df.columns:
+        raw_df=raw_df[["context","question","answers.text"]]    
+        raw_df['answer'] = raw_df['answers.text'].apply(lambda x:" ".join(x))
+        raw_df = raw_df.drop(columns = ['answers.text'])
+    else:
+        raw_df=raw_df[["context","question"]] 
+        
     # reading predicted file
     if data_type == "train" or data_type == "test":
       f= open(os.path.join(prediction_path, "predict_predictions.json"))
