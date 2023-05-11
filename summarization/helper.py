@@ -9,77 +9,98 @@ import numpy as np
 import pandas as pd
 import pathlib
 
-def generate_jsonl(data, prediction_path, model_name,summary_type,data_type):
+def generate_jsonl(data :str, prediction_path :str, model_name :str, summary_type :str, data_type :str):
+  """
+  Generate jsonl file for the model prediction text file
 
-    # input file type
-    file_extension=pathlib.Path(data).suffix
-    if file_extension =='.csv':
-        # reading csv file
-          raw_df = pd.read_csv(data)
+  Parameters
+  ----------
+    data (str) : train/validate/test data path
+    prediction_path (str) : Model pediction output path
+    model_name (str) : Huggingface qna model names
+    summary_type (str) : table/text
+    data_type (str) : train/validation/test 
 
-    if file_extension =='.json':
-          # reading json file
-          raw_df = open(data)
-          raw_df = json.load(raw_df)
-          raw_df=pd.DataFrame(raw_df)
+  Returns
+  ----------
+    None
+  """
+  # input file type
+  file_extension=pathlib.Path(data).suffix
+  if file_extension =='.csv':
+      # reading csv file
+        raw_df = pd.read_csv(data)
 
-    if file_extension ==".jsonl":
-          # reading jsonl file
-          f = open(data)
-          lines = f.read().splitlines()
-          df=pd.DataFrame(lines)
-          df.columns = ['json_element']
-          df['json_element'].apply(json.loads)
-          raw_df = pd.json_normalize(df['json_element'].apply(json.loads))
+  if file_extension =='.json':
+        # reading json file
+        raw_df = open(data)
+        raw_df = json.load(raw_df)
+        raw_df=pd.DataFrame(raw_df)
 
-    if 'summary' in raw_df.columns:
-        raw_df.rename(columns = {'summary':'actual_summary'}, inplace = True)
-        raw_df = raw_df[["text", "actual_summary"]]
-    else:
-        raw_df=raw_df["text"]
+  if file_extension ==".jsonl":
+        # reading jsonl file
+        f = open(data)
+        lines = f.read().splitlines()
+        df=pd.DataFrame(lines)
+        df.columns = ['json_element']
+        df['json_element'].apply(json.loads)
+        raw_df = pd.json_normalize(df['json_element'].apply(json.loads))
 
-    #reading predicted file
-    pred_sum = open(
-        os.path.join(prediction_path, "generated_predictions.txt"), "r"
-    ).readlines()
-    pred_sum = [x.replace("\n", " ").strip() for x in pred_sum]
-    pred_sum = pd.DataFrame(pred_sum, columns=["predicted_summary"])
+  if 'summary' in raw_df.columns:
+      raw_df.rename(columns = {'summary':'actual_summary'}, inplace = True)
+      raw_df = raw_df[["text", "actual_summary"]]
+  else:
+      raw_df=raw_df["text"]
 
-    # creating dataframe
-    final_df = raw_df.copy()
-    final_df['predicted_summary'] = pred_sum
-    final_df['model_name'] = model_name
-    final_df['summary_type'] = summary_type
-    final_df['data_type'] = data_type
-    final_df.to_json(
-        os.path.join(prediction_path, f"{data_type}_generated_predictions.jsonl"),
-        orient="records",
-    )
-    if 'actual_summary' in final_df.columns:
-        # Benchmarking models
-        bleu_score, rouge1, rougeL, semantic_similarity, _df_ = get_evaluation_metrics(final_df['actual_summary'].tolist(), final_df['predicted_summary'].tolist())
-        final_df['bleu_score'] = _df_['bleu_score'].tolist()
-        final_df['rouge1'] = _df_['rouge1'].tolist()
-        final_df['rougeL'] = _df_['rougeL'].tolist()
-        final_df['sentence_similarity'] = _df_['sentence_similarity'].tolist()
+  #reading predicted file
+  pred_sum = open(
+      os.path.join(prediction_path, "generated_predictions.txt"), "r"
+  ).readlines()
+  pred_sum = [x.replace("\n", " ").strip() for x in pred_sum]
+  pred_sum = pd.DataFrame(pred_sum, columns=["predicted_summary"])
 
-        benchmark_df = pd.DataFrame({'model_name':[model_name],'summary_type':[summary_type],'type':[data_type], 'bleu_score':[bleu_score], 'rouge1':[rouge1], 
-                                    'rougeL':[rougeL], 'semantic_similarity':[semantic_similarity]})
-        
-        benchmark_df.to_csv(os.path.join(prediction_path, f"{data_type}_data_benchmarks.csv"),index=False)
+  # creating dataframe
+  final_df = raw_df.copy()
+  final_df['predicted_summary'] = pred_sum
+  final_df['model_name'] = model_name
+  final_df['summary_type'] = summary_type
+  final_df['data_type'] = data_type
+  # saving final dataframe to jsonl format
+  final_df.to_json(
+      os.path.join(prediction_path, f"{data_type}_generated_predictions.jsonl"),
+      orient="records",
+  )
+  if 'actual_summary' in final_df.columns:
+      # Benchmarking models
+      bleu_score, rouge1, rougeL, semantic_similarity, _df_ = get_evaluation_metrics(final_df['actual_summary'].tolist(), final_df['predicted_summary'].tolist())
+      final_df['bleu_score'] = _df_['bleu_score'].tolist()
+      final_df['rouge1'] = _df_['rouge1'].tolist()
+      final_df['rougeL'] = _df_['rougeL'].tolist()
+      final_df['sentence_similarity'] = _df_['sentence_similarity'].tolist()
+
+      benchmark_df = pd.DataFrame({'model_name':[model_name],'summary_type':[summary_type],'type':[data_type], 'bleu_score':[bleu_score], 'rouge1':[rouge1], 
+                                  'rougeL':[rougeL], 'semantic_similarity':[semantic_similarity]})
+      
+      #saving benchmark dataframe to csv
+      benchmark_df.to_csv(os.path.join(prediction_path, f"{data_type}_data_benchmarks.csv"),index=False)
 
 
 
-def get_sentence_similarity(reference = '', generated = '',  model_name = None):
-  '''
+def get_sentence_similarity(reference :str = '', generated : str= '',  model_name :str = None):
+  """
   Generate cosine similarity score based on embeddings of two strings
-  Parameters:
+
+  Parameters
+  ----------
     reference (str) : Reference string to check similarity
     generated (str) : Generated/Target string to check similarity
     model_name (str) : Sentence tranformer model names
-  Returns:
+        If set as `None`, default model : "all-minilm-l6-v2" is considered
+
+  Returns
+  ----------
     Similarity score (float) : Cosine similarity score based on embeddings of the two strings
-  '''
+  """
   if model_name == None:
     model = SentenceTransformer('all-minilm-l6-v2')
   else:
@@ -94,35 +115,40 @@ def get_sentence_similarity(reference = '', generated = '',  model_name = None):
 
   return cosine_scores.item() 
 
-def get_bleu_score(reference, candidate):
-  '''
+def get_bleu_score(reference :str, candidate :str):
+  """
   Function to get BLEU scores for two strings
 
-  Parameters:
+  Parameters
+  ----------
     reference (str) : Reference String
     candidate (str) : Candidate String
 
-  Returns: 
+  Returns
+  ----------
     (float) : BLEU score
-  '''
+  """
   candidate_ = candidate.split() 
   reference_ = []
   reference_.append(reference.split())
   return sentence_bleu(reference_, candidate_, weights=(1, 0, 0, 0))
 
-def get_evaluation_metrics(actuals, predicted):
-  '''
+def get_evaluation_metrics(actuals :str, predicted :str):
+  """
   Generate benchamrking scores on different metrics for generated text
 
-  Parameters:
+  Parameters
+  ----------
     actuals (str | list) : Actual text or reference
     predicted (str | list) : Generated text or predictions
-  Returns:
+
+  Returns
+  ----------
     blue_score (float) : Mean BLUE score
     rouge1 (float): Mean ROUGE1 score
     rougeL (float): Mean ROUGEL score
     sentence similarity (float): Mean Cosine Similariy score on embeddedings
-  '''
+  """
   if isinstance(actuals, list) and isinstance(predicted, list):
     df = pd.DataFrame({'actuals':actuals,'predicted':predicted})
   elif isinstance(actuals, str) and isinstance(predicted, str):
@@ -138,9 +164,18 @@ def get_evaluation_metrics(actuals, predicted):
   return df['bleu_score'].mean(), df['rouge1'].mean(), df['rougeL'].mean(), df['sentence_similarity'].mean(), df
 
 
-def create_table(data):
+def create_table(data : pd.DataFrame):
   """
-  convert input df into jsonl file"""
+  Function to convert input df into jsonl file
+
+  Parameters
+  ----------
+    data (DataFrame) : An input csv dataframe
+  
+  Returns
+  ----------
+    new_list (list) : A list of data columns
+  """
   columns = list(data.columns)
   child_list = []
   for column in columns:
