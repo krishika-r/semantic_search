@@ -31,6 +31,7 @@ class Summarizer:
         self.max_source_length = 1024
         self.max_target_length = 128
         self.learning_rate = 3e-5 
+        self.num_train_epochs = 2 
         self.t5_params = [
             "--source_prefix",
             "summarize: ",
@@ -43,6 +44,7 @@ class Summarizer:
         summary_type : Specify table/text. Default = "text" 
         per_device_train_batch_size: The batch size per GPU/TPU core/CPU for training
         per_device_eval_batch_size: The batch size per GPU/TPU core/CPU for evaluation
+        num_train_epochs:  Total number of training epochs to perform.
         max_source_length: The maximum total input sequence length after tokenization. Sequences longer 
                            than this will be truncated, sequences shorter will be padded.
         max_target_length: The maximum total sequence length for target text after tokenization. Sequences longer
@@ -222,6 +224,8 @@ class Summarizer:
             self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
         if 'per_device_eval_batch_size' in kwargs:
             self.per_device_eval_batch_size = kwargs.get('per_device_eval_batch_size')
+        if 'num_train_epochs' in kwargs:
+            self.num_train_epochs = kwargs.get('num_train_epochs')
         if 'max_source_length' in kwargs:
             self.max_source_length = kwargs.get('max_source_length')
         if 'max_target_length' in kwargs:
@@ -249,6 +253,7 @@ class Summarizer:
             f"--max_source_length={self.max_source_length}",
             f"--max_target_length={self.max_target_length}",
             f"--learning_rate={self.learning_rate}",
+            f"--num_train_epochs={self.num_train_epochs}",
             "--predict_with_generate",
         ]
 
@@ -319,7 +324,8 @@ class Summarizer:
                 per_device_eval_batch_size= self.per_device_eval_batch_size,
                 max_source_length=self.max_source_length,
                 max_target_length=self.max_target_length,
-                learning_rate=self.learning_rate
+                learning_rate=self.learning_rate,
+                num_train_epochs=self.num_train_epochs,
             )
 
         if self.valn_path:
@@ -334,7 +340,8 @@ class Summarizer:
                 per_device_eval_batch_size= self.per_device_eval_batch_size,
                 max_source_length=self.max_source_length,
                 max_target_length=self.max_target_length,
-                learning_rate=self.learning_rate
+                learning_rate=self.learning_rate,
+                num_train_epochs=self.num_train_epochs,
             )
         
         return
@@ -415,6 +422,8 @@ class Summarizer:
                 self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
             if 'per_device_eval_batch_size' in kwargs:
                 self.per_device_eval_batch_size = kwargs.get('per_device_eval_batch_size')
+            if 'num_train_epochs' in kwargs:
+                self.num_train_epochs = kwargs.get('num_train_epochs')
             if 'max_source_length' in kwargs:
                 self.max_source_length = kwargs.get('max_source_length')
             if 'max_target_length' in kwargs:
@@ -441,6 +450,7 @@ class Summarizer:
                 f"--max_source_length={self.max_source_length}",
                 f"--max_target_length={self.max_target_length}",
                 f"--learning_rate={self.learning_rate}",
+                f"--num_train_epochs={self.num_train_epochs}",
             ]
 
             if self.model_name == "t5-small":  # if model name is t5 small
