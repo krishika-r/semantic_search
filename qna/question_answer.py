@@ -182,7 +182,7 @@ class QnA:
             print("train prediction")
           #train prediction
             self.predict(
-                model_name=self.model_name,
+                model_name=self.output_path,
                 output_path=os.path.join(self.output_path,"train_prediction"),
                 test_path=self.train_data_path,
                 is_train=True,
