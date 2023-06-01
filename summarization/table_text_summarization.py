@@ -28,10 +28,10 @@ class Summarizer:
         self.summary_type = summary_type.lower()
         self.per_device_train_batch_size = 4
         self.per_device_eval_batch_size = 4
+        self.num_train_epochs = 2
         self.max_source_length = 1024
         self.max_target_length = 128
         self.learning_rate = 3e-5 
-        self.num_train_epochs = 2 
         self.t5_params = [
             "--source_prefix",
             "summarize: ",
@@ -44,7 +44,7 @@ class Summarizer:
         summary_type : Specify table/text. Default = "text" 
         per_device_train_batch_size: The batch size per GPU/TPU core/CPU for training
         per_device_eval_batch_size: The batch size per GPU/TPU core/CPU for evaluation
-        num_train_epochs:  Total number of training epochs to perform.
+        num_train_epochs: Total number of training epochs to perform.
         max_source_length: The maximum total input sequence length after tokenization. Sequences longer 
                            than this will be truncated, sequences shorter will be padded.
         max_target_length: The maximum total sequence length for target text after tokenization. Sequences longer
@@ -180,7 +180,7 @@ class Summarizer:
             )  # you can pass this {data_type}_data.json to the model
             print("Pre-processing done...")
 
-    def train(self,train_data_path : str, output_path : str, model_name: Optional[str]=None, valn_path :Optional[str]=None, **kwargs):
+    def train(self,train_data_path : str, output_path : str, model_name: Optional[str]=None, valn_path :Optional[str]=None, model_type :str =None, **kwargs):
 
         """Function used to fine tune huggingface summarization models.
 
@@ -194,6 +194,8 @@ class Summarizer:
             If set as `None`, default model : "facebook/bart-large-cnn" is considered
         valn_path : None, optional (str)
             An optional validation data file/path to evaluate the perplexity on (a csv or json file)
+        model_type : None
+            If set as `None`, t5 params are not taken into consideration
         kwargs: default parameters
             Any default parameters can be used for fine tuning the model. eg:learning_rate,max_source_length etc..
 
@@ -224,14 +226,14 @@ class Summarizer:
             self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
         if 'per_device_eval_batch_size' in kwargs:
             self.per_device_eval_batch_size = kwargs.get('per_device_eval_batch_size')
-        if 'num_train_epochs' in kwargs:
-            self.num_train_epochs = kwargs.get('num_train_epochs')
         if 'max_source_length' in kwargs:
             self.max_source_length = kwargs.get('max_source_length')
         if 'max_target_length' in kwargs:
             self.max_target_length = kwargs.get('max_target_length')
         if 'learning_rate' in kwargs:
             self.learning_rate = kwargs.get('learning_rate')
+        if 'num_train_epochs' in kwargs:
+            self.num_train_epochs = kwargs.get('num_train_epochs')
         
         print("Executed")
         print('Model Name: {}'.format(self.model_name))
@@ -257,7 +259,7 @@ class Summarizer:
             "--predict_with_generate",
         ]
 
-        if self.model_name == "t5-small": #if model name is t5-small
+        if model_type.lower() == "t5": #if model type is t5
             model_params += self.t5_params
             
 
@@ -316,7 +318,7 @@ class Summarizer:
             print("train prediction")
           #train prediction
             self.predict(
-                model_name=self.model_name,
+                model_name=os.path.join(self.output_path,"training"),
                 output_path=os.path.join(self.output_path,"prediction"),
                 test_path=self.train_data_path,
                 is_train=True,
@@ -330,9 +332,9 @@ class Summarizer:
 
         if self.valn_path:
             print("validation prediction")
-          #val prediction
+          #validation prediction
             self.predict(
-                model_name=self.model_name,
+                model_name=os.path.join(self.output_path,"training"),
                 output_path=os.path.join(self.output_path,"validation"),
                 test_path=self.valn_path,
                 is_train=True,
@@ -354,6 +356,7 @@ class Summarizer:
         model_name : Optional[str]=None,
         test_path: str = None,
         is_train=False,
+        model_type: str = None,
         **kwargs
     ):
         """Inference Function to test an input/file.
@@ -370,6 +373,8 @@ class Summarizer:
             If set as `None`, default model : "facebook/bart-large-cnn" is considered
         is_train: False
             If is_train=False(Default) used to save predicted test result in jsonl format or if is_train=True used to save predicted train result in jsonl format.
+        model_type : None
+            If set as `None`, t5 params are not taken into consideration
         kwargs: default parameters
             Any default parameters can be used for prediction. eg:learning_rate,doc_stride etc..
 
@@ -422,14 +427,14 @@ class Summarizer:
                 self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
             if 'per_device_eval_batch_size' in kwargs:
                 self.per_device_eval_batch_size = kwargs.get('per_device_eval_batch_size')
-            if 'num_train_epochs' in kwargs:
-                self.num_train_epochs = kwargs.get('num_train_epochs')
             if 'max_source_length' in kwargs:
                 self.max_source_length = kwargs.get('max_source_length')
             if 'max_target_length' in kwargs:
                 self.max_target_length = kwargs.get('max_target_length')
             if 'learning_rate' in kwargs:
                 self.learning_rate = kwargs.get('learning_rate')
+            if 'num_train_epochs' in kwargs:
+                self.num_train_epochs = kwargs.get('num_train_epochs')
 
             model_params = [
                 "python",
@@ -453,7 +458,7 @@ class Summarizer:
                 f"--num_train_epochs={self.num_train_epochs}",
             ]
 
-            if self.model_name == "t5-small":  # if model name is t5 small
+            if model_type.lower() == "t5": # model_type is t5
                 model_params += self.t5_params
 
             # Start the training
