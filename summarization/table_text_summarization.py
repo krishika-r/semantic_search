@@ -315,11 +315,14 @@ class Summarizer:
                 print("error message",err)
                 print(err.stderr.decode('utf8'))
 
+        # saving the finetuned model
+        trained_model = os.path.join(self.output_path,"training")
+
         if self.train_data_path:
             print("train prediction")
           #train prediction
             self.predict(
-                model_name=os.path.join(self.output_path,"training"),
+                model_name=trained_model,
                 output_path=os.path.join(self.output_path,"prediction"),
                 test_path=self.train_data_path,
                 is_train=True,
@@ -336,7 +339,7 @@ class Summarizer:
             print("validation prediction")
           #validation prediction
             self.predict(
-                model_name=os.path.join(self.output_path,"training"),
+                model_name=trained_model,
                 output_path=os.path.join(self.output_path,"validation"),
                 test_path=self.valn_path,
                 is_train=True,
@@ -391,7 +394,7 @@ class Summarizer:
         --------
         >>> from table_text_summarization import Summarizer
         >>> model = Summarizer() # default it takes text as summary type
-        >>> model.predict(test_path="test.json/csv",output_path="output_dir",model_name='t5-small'.model_type='t5')
+        >>> model.predict(test_path="test.json/csv",output_path="output_dir",model_name='t5-small',model_type='t5')
         >>> # or
         >>> model.predict(context=context,model_name='t5-small',min_length=5, max_length=20)
 
