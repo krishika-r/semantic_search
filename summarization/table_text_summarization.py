@@ -207,13 +207,14 @@ class Summarizer:
         --------
         >>> from table_text_summarization import Summarizer
         >>> model = Summarizer(summary_type="table")
-        >>> finetuned_model=model.train(train_data_path='train.json/csv',output_path='output_directory',model_name='t5-small',valn_path='validate.json/csv')
+        >>> finetuned_model=model.train(train_data_path='train.json/csv',output_path='output_directory',model_name='t5-small',model_type='t5',valn_path='validate.json/csv')
         """
 
         self.train_data_path = train_data_path
         self.valn_path = valn_path
         self.output_path = output_path
         self.model_name = model_name
+        self.model_type = model_type
 
         if not model_name:
             self.model_name = "facebook/bart-large-cnn"
@@ -322,6 +323,7 @@ class Summarizer:
                 output_path=os.path.join(self.output_path,"prediction"),
                 test_path=self.train_data_path,
                 is_train=True,
+                model_type=self.model_type,
                 per_device_train_batch_size=self.per_device_train_batch_size, 
                 per_device_eval_batch_size= self.per_device_eval_batch_size,
                 max_source_length=self.max_source_length,
@@ -338,6 +340,7 @@ class Summarizer:
                 output_path=os.path.join(self.output_path,"validation"),
                 test_path=self.valn_path,
                 is_train=True,
+                model_type=self.model_type,
                 per_device_train_batch_size=self.per_device_train_batch_size, 
                 per_device_eval_batch_size= self.per_device_eval_batch_size,
                 max_source_length=self.max_source_length,
@@ -388,7 +391,7 @@ class Summarizer:
         --------
         >>> from table_text_summarization import Summarizer
         >>> model = Summarizer() # default it takes text as summary type
-        >>> model.predict(test_path="test.json/csv",output_path="output_dir",model_name='t5-small')
+        >>> model.predict(test_path="test.json/csv",output_path="output_dir",model_name='t5-small'.model_type='t5')
         >>> # or
         >>> model.predict(context=context,model_name='t5-small',min_length=5, max_length=20)
 
@@ -422,6 +425,7 @@ class Summarizer:
             self.test_path = test_path
             self.output_path = output_path
             self.model_name = model_name
+            self.model_type = model_type
 
             if 'per_device_train_batch_size' in kwargs:
                 self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
