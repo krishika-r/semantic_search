@@ -54,7 +54,7 @@ def _generate_processed_examples(input_path):
               cell_indices=cell_indices,
               table_page_title=table_page_title,
               table_section_title=table_section_title,
-              order_cell=True))
+              order_cell=False))
 
       processed_json_example = copy.deepcopy(json_example)
       processed_json_example["subtable_metadata_str"] = table_metadata_str
