@@ -88,97 +88,99 @@ class Summarizer:
                     parent_list = create_table(df)
 
                     summary_file_name = os.path.splitext(file)[0]
-                if os.path.exists(f'{summary_file_name}.jsonl'):
-                    #reading jsonl file
-                    summary_df = pd.read_json(f'{summary_file_name}.jsonl',lines=True)
-                    if 'summary' in summary_df.columns:
-                        actual_summary = summary_df.summary.values[0]
-                        print(actual_summary)
+                    if os.path.exists(f'{summary_file_name}.jsonl'):
+                        #reading jsonl file
+                        summary_df = pd.read_json(f'{summary_file_name}.jsonl',lines=True)
+                        if 'summary' in summary_df.columns:
+                            actual_summary = summary_df.summary.values[0]
+                            print(actual_summary)
+                        else:
+                            actual_summary = ' '
+                        if 'highlighted_cells' in summary_df.columns:
+                            highlighted_cells = summary_df.highlighted_cells.values[0]
+                            print(highlighted_cells)
+                        else:
+                            highlighted_cell = list(
+                                    itertools.product(range(1, df.shape[0] + 1), range(df.shape[1]))
+                                )
+                            highlighted_cells = [list(i) for i in highlighted_cell]
                     else:
                         actual_summary = ' '
-                    if 'highlighted_cells' in summary_df.columns:
-                        highlighted_cells = summary_df.highlighted_cells.values[0]
-                        print(highlighted_cells)
-                    else:
                         highlighted_cell = list(
                                 itertools.product(range(1, df.shape[0] + 1), range(df.shape[1]))
                             )
                         highlighted_cells = [list(i) for i in highlighted_cell]
-                else:
-                    actual_summary = ' '
-                    highlighted_cell = list(
-                            itertools.product(range(1, df.shape[0] + 1), range(df.shape[1]))
-                        )
-                    highlighted_cells = [list(i) for i in highlighted_cell]
 
-                temp_json["table"] = parent_list
-                temp_json["table_webpage_url"] = ""
-                temp_json["table_page_title"] = ""
-                temp_json["table_section_title"] = ""
-                temp_json["table_section_text"] = ""
-                temp_json["highlighted_cells"] = highlighted_cells
-                temp_json["example_id"] = int(random_num)
-                temp_json["sentence_annotations"] = [
-                            {
-                                "original_sentence": "",
-                                "sentence_after_deletion": "",
-                                "sentence_after_ambiguity": "",
-                                "final_sentence": actual_summary,
-                            }
-                        ]
+                    temp_json["table"] = parent_list
+                    temp_json["table_webpage_url"] = ""
+                    temp_json["table_page_title"] = ""
+                    temp_json["table_section_title"] = ""
+                    temp_json["table_section_text"] = ""
+                    temp_json["highlighted_cells"] = highlighted_cells
+                    temp_json["example_id"] = int(random_num)
+                    temp_json["sentence_annotations"] = [
+                                {
+                                    "original_sentence": "",
+                                    "sentence_after_deletion": "",
+                                    "sentence_after_ambiguity": "",
+                                    "final_sentence": actual_summary,
+                                }
+                            ]
 
-                random_num += 1
-                json_file.append(temp_json)
+                    random_num += 1
+                    json_file.append(temp_json)
 
-            processed_data=os.path.join(data,'processed')
+                processed_data=os.path.join(data,'processed')
+    
+                # creating a folder to save the processed data 
+                os.makedirs(processed_data, exist_ok=True)
+                with open(os.path.join(processed_data, f"processed_data_{data_type}.jsonl"), "w") as outfile:
+                    for entry in json_file:
+                        json.dump(entry, outfile)
+                        outfile.write("\n")
 
-            # creating a folder to save the processed data 
-            os.makedirs(processed_data, exist_ok=True)
-            with open(os.path.join(processed_data, f"processed_data_{data_type}.jsonl"), "w") as outfile:
-                for entry in json_file:
-                    json.dump(entry, outfile)
-                    outfile.write("\n")
-
-            #Lattice preprocessing
-            process_params = [
-                "python",
-                "Lattice/preprocess_data.py",
-                "--input_path",
-                os.path.join(processed_data, f"processed_data_{data_type}.jsonl"),
-                "--output_path",
-                os.path.join(processed_data, f"{data_type}_data_linearized.jsonl"),
-            ]
-
-            subprocess.run(
-                process_params,
-                check=True,
-                capture_output=True,
-            )
-            print("Executed Lattice...")
-
-            lattice_output = pd.read_json(
-                os.path.join(processed_data, f"{data_type}_data_linearized.jsonl"), lines=True
-            )  # jsonl is the output from lattice step 1
-
-            #saving the Lattice output in a dataframe
-            model_input = pd.DataFrame()
-            if "sentence_annotations" in lattice_output.columns:
-                model_input["text"] = lattice_output["subtable_metadata_str"]
-                model_input["summary"] = (
-                    lattice_output["sentence_annotations"]
-                    .apply(lambda x: x[0]["final_sentence"])
-                    .values
+                #Lattice preprocessing
+                process_params = [
+                    "python",
+                    "Lattice/preprocess_data.py",
+                    "--input_path",
+                    os.path.join(processed_data, f"processed_data_{data_type}.jsonl"),
+                    "--output_path",
+                    os.path.join(processed_data, f"{data_type}_data_linearized.jsonl"),
+                ]
+    
+                subprocess.run(
+                    process_params,
+                    check=True,
+                    capture_output=True,
                 )
+                print("Executed Lattice...")
+    
+                lattice_output = pd.read_json(
+                    os.path.join(processed_data, f"{data_type}_data_linearized.jsonl"), lines=True
+                )  # jsonl is the output from lattice step 1
+    
+                #saving the Lattice output in a dataframe
+                model_input = pd.DataFrame()
+                if "sentence_annotations" in lattice_output.columns:
+                    model_input["text"] = lattice_output["subtable_metadata_str"]
+                    model_input["summary"] = (
+                        lattice_output["sentence_annotations"]
+                        .apply(lambda x: x[0]["final_sentence"])
+                        .values
+                    )
+                else:
+                    model_input["text"] = lattice_output["subtable_metadata_str"]
+                    model_input["summary"] = " "
+    
+                #saving the final preprocessed data to json format
+                model_input.to_json(
+                    os.path.join(processed_data, f"{data_type}_data.json"),
+                    orient="records",
+                )  # you can pass this {data_type}_data.json to the model
+                print("Pre-processing done...")
             else:
-                model_input["text"] = lattice_output["subtable_metadata_str"]
-                model_input["summary"] = " "
-
-            #saving the final preprocessed data to json format
-            model_input.to_json(
-                os.path.join(processed_data, f"{data_type}_data.json"),
-                orient="records",
-            )  # you can pass this {data_type}_data.json to the model
-            print("Pre-processing done...")
+                print("Given folder is empty.Please place input csv files...exiting....")
 
     def train(self,train_data_path : str, output_path : str, model_name: Optional[str]=None, valn_path :Optional[str]=None, model_type :str =None, **kwargs):
 
@@ -320,12 +322,12 @@ class Summarizer:
 
         if self.train_data_path:
             print("train prediction")
-          #train prediction
+            #train prediction
             self.predict(
                 model_name=trained_model,
                 output_path=os.path.join(self.output_path,"prediction"),
                 test_path=self.train_data_path,
-                is_train=True,
+                datatype='train',
                 model_type=self.model_type,
                 per_device_train_batch_size=self.per_device_train_batch_size, 
                 per_device_eval_batch_size= self.per_device_eval_batch_size,
@@ -337,12 +339,12 @@ class Summarizer:
 
         if self.valn_path:
             print("validation prediction")
-          #validation prediction
+            #validation prediction
             self.predict(
                 model_name=trained_model,
                 output_path=os.path.join(self.output_path,"validation"),
                 test_path=self.valn_path,
-                is_train=True,
+                datatype='validation',
                 model_type=self.model_type,
                 per_device_train_batch_size=self.per_device_train_batch_size, 
                 per_device_eval_batch_size= self.per_device_eval_batch_size,
@@ -361,7 +363,7 @@ class Summarizer:
         output_path : str =None,
         model_name : Optional[str]=None,
         test_path: str = None,
-        is_train=False,
+        datatype: str =None,
         model_type: str = None,
         **kwargs
     ):
@@ -377,8 +379,8 @@ class Summarizer:
             Output directory to store the test file predicted results
         model_name: None, optional (str)
             If set as `None`, default model : "facebook/bart-large-cnn" is considered
-        is_train: False
-            If is_train=False(Default) used to save predicted test result in jsonl format or if is_train=True used to save predicted train result in jsonl format.
+        datatype: str 
+            If datatype='test' used to save predicted test result in jsonl format or if datatype='train' used to save predicted train result in jsonl format or if datatype='validation' used to save predicted validation result in jsonl format.
         model_type : None
             If set as `None`, t5 params are not taken into consideration
         kwargs: default parameters
@@ -487,5 +489,5 @@ class Summarizer:
                 self.output_path,
                 self.model_name,
                 self.summary_type,
-                "train" if is_train else "test",
+                datatype if datatype else "test",
             )
