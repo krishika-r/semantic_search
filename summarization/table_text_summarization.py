@@ -182,22 +182,23 @@ class Summarizer:
             else:
                 print("Given folder is empty.Please place input csv files...exiting....")
 
-    def train(self,train_data_path : str, output_path : str, model_name: Optional[str]=None, valn_path :Optional[str]=None, model_type :str =None, **kwargs):
+
+    def train(self,train_data_path : str=None, output_path : str=None, model_type :str=None, model_name: Optional[str]=None, valn_path :Optional[str]=None, **kwargs):
 
         """Function used to fine tune huggingface summarization models.
 
         Parameters
         ----------
-        train_data_path: str
+        train_data_path: None (str)
             Training data file/path of csv or json file
-        output_path: str
+        output_path: None (str)
             Output directory to store the finetuned model
         model_name: None, optional (str)
             If set as `None`, default model : "facebook/bart-large-cnn" is considered
+        model_type : None (str)
+            If set as `t5`, t5 params is taken into consideration. If set as others, t5 params are not considered
         valn_path : None, optional (str)
             An optional validation data file/path to evaluate the perplexity on (a csv or json file)
-        model_type : None
-            If set as `None`, t5 params are not taken into consideration
         kwargs: default parameters
             Any default parameters can be used for fine tuning the model. eg:learning_rate,max_source_length etc..
 
@@ -223,8 +224,11 @@ class Summarizer:
             print("No model name specified. Considering default model : facebook/bart-large-cnn")
 
         if not train_data_path or not output_path:
-            raise NameError("Provide train_data_path/output_path in the input")
+            raise NameError("Provide train_data_path and output_path in the input")
        
+        if not model_type:
+            raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5' \n 2.'others'")
+
         if 'per_device_train_batch_size' in kwargs:
             self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
         if 'per_device_eval_batch_size' in kwargs:
@@ -265,7 +269,6 @@ class Summarizer:
         if model_type.lower() == "t5": #if model type is t5
             model_params += self.t5_params
             
-
         # command line argument for validation
         validation_cli = [
             "--do_eval",
@@ -359,30 +362,30 @@ class Summarizer:
 
     def predict(
         self,
+        model_type: str = None,
         context: str = None,
         output_path : str =None,
         model_name : Optional[str]=None,
         test_path: str = None,
         datatype: str =None,
-        model_type: str = None,
         **kwargs
     ):
         """Inference Function to test an input/file.
 
         Parameters
         ----------
-        context: str
+        model_type : None (str)
+            If set as `t5`, t5 params is taken into consideration. If set as others, t5 params are not considered
+        context: None (str)
             An input string
-        test_path: str
+        test_path: None (str)
             Test data file/path to evaluate the perplexity on (a csv or json file)
-        output_path: str
+        output_path: None (str)
             Output directory to store the test file predicted results
         model_name: None, optional (str)
             If set as `None`, default model : "facebook/bart-large-cnn" is considered
-        datatype: str 
+        datatype: None (str)
             If datatype='test' used to save predicted test result in jsonl format or if datatype='train' used to save predicted train result in jsonl format or if datatype='validation' used to save predicted validation result in jsonl format.
-        model_type : None
-            If set as `None`, t5 params are not taken into consideration
         kwargs: default parameters
             Any default parameters can be used for prediction. eg:learning_rate,doc_stride etc..
 
@@ -398,14 +401,17 @@ class Summarizer:
         >>> model = Summarizer() # default it takes text as summary type
         >>> model.predict(test_path="test.json/csv",output_path="output_dir",model_name='t5-small',model_type='t5')
         >>> # or
-        >>> model.predict(context=context,model_name='t5-small',min_length=5, max_length=20)
+        >>> model.predict(context=context,model_name='t5-small',min_length=5, max_length=20,model_type='t5')
 
         """
         #getting the model path
         if not model_name:
             model_name = "facebook/bart-large-cnn"
             print("No model name specified. Considering default model : facebook/bart-large-cnn")
-        
+
+        if not model_type:
+            raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5' \n 2.'others'")
+
         #Predicting answers when context is provided as a text and summary_type is text
         if self.summary_type=="text":
             if isinstance(context,str):
@@ -425,7 +431,7 @@ class Summarizer:
             #Predicting answers when context is specified in csv/json file
             if not test_path or not output_path:
                 raise NameError(
-                    "Please enter the test path/output path"
+                    "Please enter the test path and output path"
                 )
             self.test_path = test_path
             self.output_path = output_path
