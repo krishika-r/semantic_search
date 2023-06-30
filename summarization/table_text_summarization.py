@@ -221,6 +221,7 @@ class Summarizer:
 
         if not model_name:
             self.model_name = "facebook/bart-large-cnn"
+            self.model_type = "others"
             print("No model name specified. Considering default model : facebook/bart-large-cnn")
 
         if not train_data_path or not output_path:
@@ -266,7 +267,7 @@ class Summarizer:
             "--predict_with_generate",
         ]
 
-        if model_type.lower() == "t5": #if model type is t5
+        if "t5" in model_type.lower(): #if model type is t5
             model_params += self.t5_params
             
         # command line argument for validation
@@ -406,7 +407,8 @@ class Summarizer:
         """
         #getting the model path
         if not model_name:
-            model_name = "facebook/bart-large-cnn"
+            self.model_name = "facebook/bart-large-cnn"
+            self.model_type = "others"
             print("No model name specified. Considering default model : facebook/bart-large-cnn")
 
         if not model_type:
@@ -473,7 +475,7 @@ class Summarizer:
                 f"--num_train_epochs={self.num_train_epochs}",
             ]
 
-            if model_type.lower() == "t5": # model_type is t5
+            if "t5" in model_type.lower(): # model_type is t5
                 model_params += self.t5_params
 
             # Start the training
