@@ -54,12 +54,12 @@ class Summarizer:
             source_prefix: A summarize prefix to be added before every source text for T5 models.
         """
 
-    def pre_process(self, data: str = None, data_type: str = None):
+    def pre_process(self, data_path: str = None, data_type: str = None):
         """Function used to preprocess the train/validation/test data using lattice.
 
         Parameters
         ----------
-        data: str
+        data_path: str
             Train/validation/test data folder
         data_type: str
             Specifiy string input as train/validation/test
@@ -70,14 +70,14 @@ class Summarizer:
 
         Examples
         --------
-        >>> from table_text_summarization import Summarizer
+        >>> from summarization_trainer import Summarizer
         >>> model = Summarizer(summary_type="table")
-        >>> model.pre_process(data='train_folder',data_type='train')
+        >>> model.pre_process(data_path='train_folder',data_type='train')
         """
         if self.summary_type=="table":
             random_num = 111234
             json_file = []
-            file_list = glob.glob(data + "/*.csv")  # ext placeholder
+            file_list = glob.glob(data_path + "/*.csv")  # ext placeholder
             if file_list:
                 for file in file_list:
                     temp_json = {}
@@ -130,7 +130,7 @@ class Summarizer:
                     random_num += 1
                     json_file.append(temp_json)
 
-                processed_data=os.path.join(data,'processed')
+                processed_data=os.path.join(data_path,'processed')
     
                 # creating a folder to save the processed data 
                 os.makedirs(processed_data, exist_ok=True)
@@ -181,9 +181,21 @@ class Summarizer:
                 print("Pre-processing done...")
             else:
                 print("Given folder is empty.Please place input csv files...exiting....")
+        else:
+            print("No preprocessing step for text summarization")
+            return 
 
-
-    def train(self,train_data_path : str=None, output_path : str=None, model_type :str=None, model_name: Optional[str]=None, valn_path :Optional[str]=None, **kwargs):
+    def train(
+        self,
+        train_data_path : str = None,
+        output_path : str = None,
+        model_type :str = None,
+        train_prediction :str = False,
+        val_prediction :Optional[str] = False, 
+        model_name: Optional[str] = None, 
+        valn_path :Optional[str] = None, 
+        **kwargs
+    ):
 
         """Function used to fine tune huggingface summarization models.
 
@@ -194,9 +206,13 @@ class Summarizer:
         output_path: None (str)
             Output directory to store the finetuned model
         model_name: None, optional (str)
-            If set as `None`, default model : "facebook/bart-large-cnn" is considered
+            If set as 'None', default model : "facebook/bart-large-cnn" is considered
         model_type : None (str)
-            If set as `t5`, t5 params is taken into consideration. If set as others, t5 params are not considered
+            If set as 't5', t5 params is taken into consideration. If set as others, t5 params are not considered
+        train_prediction : False (str)
+            If set as 'True', prediction for train data is calculated.
+        val_prediction : False, optional (str)
+            If set as 'True', prediction for validation data is calculated.
         valn_path : None, optional (str)
             An optional validation data file/path to evaluate the perplexity on (a csv or json file)
         kwargs: default parameters
@@ -210,7 +226,7 @@ class Summarizer:
         --------
         >>> from table_text_summarization import Summarizer
         >>> model = Summarizer(summary_type="table")
-        >>> finetuned_model=model.train(train_data_path='train.json/csv',output_path='output_directory',model_name='t5-small',model_type='t5',valn_path='validate.json/csv')
+        >>> finetuned_model=model.train(train_data_path='train.json/csv',output_path='output_directory',model_name='t5-small',model_type='t5',valn_path='validate.json/csv',train_prediction=True,val_prediction=True)
         """
 
         self.train_data_path = train_data_path
@@ -218,6 +234,8 @@ class Summarizer:
         self.output_path = output_path
         self.model_name = model_name
         self.model_type = model_type
+        self.train_prediction = train_prediction
+        self.val_prediction = val_prediction
 
         if not model_name:
             self.model_name = "facebook/bart-large-cnn"
@@ -266,6 +284,12 @@ class Summarizer:
             f"--num_train_epochs={self.num_train_epochs}",
             "--predict_with_generate",
         ]
+
+        # Defining user specified kwargs to model params 
+        for key, value in kwargs.items():
+            if key not in ['per_device_train_batch_size','per_device_eval_batch_size','max_source_length',
+            'max_target_length','learning_rate','num_train_epochs']:
+                model_params.append(f"--{key}={value}")
 
         if "t5" in model_type.lower(): #if model type is t5
             model_params += self.t5_params
@@ -324,12 +348,21 @@ class Summarizer:
         # saving the finetuned model
         trained_model = os.path.join(self.output_path,"training")
 
-        if self.train_data_path:
+        # extracting user defined kwargs alone by removing these 6 default kwargs 
+        keys_to_delete = ['per_device_train_batch_size','per_device_eval_batch_size','max_source_length',
+            'max_target_length','learning_rate','num_train_epochs']
+        for key in keys_to_delete:
+            if key in kwargs:
+                del kwargs[key]
+
+        if self.train_prediction==True:
             print("train prediction")
+            #prediction folder path
+            prediction_path = os.path.join(self.output_path,"prediction")
             #train prediction
             self.predict(
                 model_name=trained_model,
-                output_path=os.path.join(self.output_path,"prediction"),
+                output_path=os.path.join(prediction_path,"train"),
                 test_path=self.train_data_path,
                 datatype='train',
                 model_type=self.model_type,
@@ -339,14 +372,19 @@ class Summarizer:
                 max_target_length=self.max_target_length,
                 learning_rate=self.learning_rate,
                 num_train_epochs=self.num_train_epochs,
+                **kwargs
             )
 
-        if self.valn_path:
+        if self.val_prediction==True:
+            if not valn_path:
+                raise NameError("Provide validation data path in the input for validation prediction")
             print("validation prediction")
+            #prediction folder path
+            prediction_path = os.path.join(self.output_path,"prediction")
             #validation prediction
             self.predict(
                 model_name=trained_model,
-                output_path=os.path.join(self.output_path,"validation"),
+                output_path=os.path.join(prediction_path,"validation"),
                 test_path=self.valn_path,
                 datatype='validation',
                 model_type=self.model_type,
@@ -356,11 +394,10 @@ class Summarizer:
                 max_target_length=self.max_target_length,
                 learning_rate=self.learning_rate,
                 num_train_epochs=self.num_train_epochs,
+                **kwargs
             )
-        
         return
             
-
     def predict(
         self,
         model_type: str = None,
@@ -415,87 +452,92 @@ class Summarizer:
             raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5' \n 2.'others'")
 
         #Predicting answers when context is provided as a text and summary_type is text
-        if self.summary_type=="text":
-            if isinstance(context,str):
-                #Infer Summarization model with transformers library using summarization pipeline
-                summarizer = pipeline("summarization", model=model_name,**kwargs)
-                generated_sum = summarizer(str(context))[0]["summary_text"]
-                df = pd.DataFrame([generated_sum],columns=['predicted_summary'])
-                df['context'] = context
-                df['model_name'] = model_name
-                df= df[['context','predicted_summary','model_name']]
-                # Create dictionary
-                dictionary = df.to_dict(orient="records")
-                # Return dictionary
-                return dictionary
+        if isinstance(context,str):
+            #Infer Summarization model with transformers library using summarization pipeline
+            summarizer = pipeline("summarization", model=model_name,**kwargs)
+            generated_sum = summarizer(str(context))[0]["summary_text"]
+            df = pd.DataFrame([generated_sum],columns=['predicted_summary'])
+            df['context'] = context
+            df['model_name'] = model_name
+            df= df[['context','predicted_summary','model_name']]
+            # Create dictionary
+            dictionary = df.to_dict(orient="records")
+            # Return dictionary
+            return dictionary
 
-        if self.summary_type=="text" or self.summary_type=="table":
-            #Predicting answers when context is specified in csv/json file
-            if not test_path or not output_path:
-                raise NameError(
-                    "Please enter the test path and output path"
-                )
-            self.test_path = test_path
-            self.output_path = output_path
-            self.model_name = model_name
-            self.model_type = model_type
-
-            if 'per_device_train_batch_size' in kwargs:
-                self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
-            if 'per_device_eval_batch_size' in kwargs:
-                self.per_device_eval_batch_size = kwargs.get('per_device_eval_batch_size')
-            if 'max_source_length' in kwargs:
-                self.max_source_length = kwargs.get('max_source_length')
-            if 'max_target_length' in kwargs:
-                self.max_target_length = kwargs.get('max_target_length')
-            if 'learning_rate' in kwargs:
-                self.learning_rate = kwargs.get('learning_rate')
-            if 'num_train_epochs' in kwargs:
-                self.num_train_epochs = kwargs.get('num_train_epochs')
-
-            model_params = [
-                "python",
-                "run_summarization.py",
-                "--model_name_or_path",
-                self.model_name,
-                "--text_column",
-                "text",
-                "--do_predict",
-                "--test_file",
-                self.test_path,
-                "--predict_with_generate",
-                "--overwrite_output_dir",  # to overwrite the existing files
-                "--output_dir",
-                self.output_path,
-                f"--per_device_train_batch_size={self.per_device_train_batch_size}",
-                f"--per_device_eval_batch_size={self.per_device_eval_batch_size}",
-                f"--max_source_length={self.max_source_length}",
-                f"--max_target_length={self.max_target_length}",
-                f"--learning_rate={self.learning_rate}",
-                f"--num_train_epochs={self.num_train_epochs}",
-            ]
-
-            if "t5" in model_type.lower(): # model_type is t5
-                model_params += self.t5_params
-
-            # Start the training
-            try:       
-                evaluator = subprocess.run(
-                    model_params,
-                    check=True,
-                    capture_output=True,
-                )
-                print("Evaluation output: ",evaluator.stdout)
-                
-            except CalledProcessError as err:
-                print("error message",err)
-                print(err.stderr.decode('utf8'))
-
-            # saving predicted output as jsonl for test file
-            generate_jsonl(
-                self.test_path,
-                self.output_path,
-                self.model_name,
-                self.summary_type,
-                datatype if datatype else "test",
+        #Predicting answers when context is specified in csv/json file
+        if not test_path or not output_path:
+            raise NameError(
+                "Please enter the test path and output path"
             )
+        self.test_path = test_path
+        self.output_path = output_path
+        self.model_name = model_name
+        self.model_type = model_type
+
+        if 'per_device_train_batch_size' in kwargs:
+            self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
+        if 'per_device_eval_batch_size' in kwargs:
+            self.per_device_eval_batch_size = kwargs.get('per_device_eval_batch_size')
+        if 'max_source_length' in kwargs:
+            self.max_source_length = kwargs.get('max_source_length')
+        if 'max_target_length' in kwargs:
+            self.max_target_length = kwargs.get('max_target_length')
+        if 'learning_rate' in kwargs:
+            self.learning_rate = kwargs.get('learning_rate')
+        if 'num_train_epochs' in kwargs:
+            self.num_train_epochs = kwargs.get('num_train_epochs')
+
+        model_params = [
+            "python",
+            "run_summarization.py",
+            "--model_name_or_path",
+            self.model_name,
+            "--text_column",
+            "text",
+            "--do_predict",
+            "--test_file",
+            self.test_path,
+            "--predict_with_generate",
+            "--overwrite_output_dir",  # to overwrite the existing files
+            "--output_dir",
+            self.output_path,
+            f"--per_device_train_batch_size={self.per_device_train_batch_size}",
+            f"--per_device_eval_batch_size={self.per_device_eval_batch_size}",
+            f"--max_source_length={self.max_source_length}",
+            f"--max_target_length={self.max_target_length}",
+            f"--learning_rate={self.learning_rate}",
+            f"--num_train_epochs={self.num_train_epochs}",
+        ]
+
+        # Defining user specified kwargs to model params 
+        for key, value in kwargs.items():
+            if key not in ['per_device_train_batch_size','per_device_eval_batch_size','max_source_length',
+            'max_target_length','learning_rate','num_train_epochs']:
+                model_params.append(f"--{key}={value}")
+
+        if "t5" in model_type.lower(): # model_type is t5
+            model_params += self.t5_params
+
+        # Start the training
+        try:       
+            evaluator = subprocess.run(
+                model_params,
+                check=True,
+                capture_output=True,
+            )
+            print("Evaluation output: ",evaluator.stdout)
+            
+        except CalledProcessError as err:
+            print("error message",err)
+            print(err.stderr.decode('utf8'))
+
+        # saving predicted output as jsonl for test file
+        generate_jsonl(
+            self.test_path,
+            self.output_path,
+            self.model_name,
+            self.summary_type,
+            datatype if datatype else "test",
+        )
+        return 
