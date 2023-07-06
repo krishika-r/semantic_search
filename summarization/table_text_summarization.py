@@ -70,7 +70,7 @@ class Summarizer:
 
         Examples
         --------
-        >>> from summarization_trainer import Summarizer
+        >>> from table_text_summarization import Summarizer
         >>> model = Summarizer(summary_type="table")
         >>> model.pre_process(data_path='train_folder',data_type='train')
         """
@@ -93,12 +93,12 @@ class Summarizer:
                         summary_df = pd.read_json(f'{summary_file_name}.jsonl',lines=True)
                         if 'summary' in summary_df.columns:
                             actual_summary = summary_df.summary.values[0]
-                            print(actual_summary)
+                            print(f'actual summary: {actual_summary}')
                         else:
                             actual_summary = ' '
                         if 'highlighted_cells' in summary_df.columns:
                             highlighted_cells = summary_df.highlighted_cells.values[0]
-                            print(highlighted_cells)
+                            print(f'highlighted cells: {highlighted_cells}')
                         else:
                             highlighted_cell = list(
                                     itertools.product(range(1, df.shape[0] + 1), range(df.shape[1]))
@@ -178,7 +178,7 @@ class Summarizer:
                     os.path.join(processed_data, f"{data_type}_data.json"),
                     orient="records",
                 )  # you can pass this {data_type}_data.json to the model
-                print("Pre-processing done...")
+                print(f"Pre-processing done...processed data stored in {processed_data} folder")
             else:
                 print("Given folder is empty.Please place input csv files...exiting....")
         else:
@@ -246,7 +246,7 @@ class Summarizer:
             raise NameError("Provide train_data_path and output_path in the input")
        
         if not model_type:
-            raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5' \n 2.'others'")
+            raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5'\n2.'others'")
 
         if 'per_device_train_batch_size' in kwargs:
             self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
@@ -261,7 +261,6 @@ class Summarizer:
         if 'num_train_epochs' in kwargs:
             self.num_train_epochs = kwargs.get('num_train_epochs')
         
-        print("Executed")
         print('Model Name: {}'.format(self.model_name))
 
         model_params = [
@@ -290,10 +289,10 @@ class Summarizer:
             if key not in ['per_device_train_batch_size','per_device_eval_batch_size','max_source_length',
             'max_target_length','learning_rate','num_train_epochs']:
                 model_params.append(f"--{key}={value}")
-
+             
         if "t5" in model_type.lower(): #if model type is t5
             model_params += self.t5_params
-            
+    
         # command line argument for validation
         validation_cli = [
             "--do_eval",
@@ -313,7 +312,7 @@ class Summarizer:
  
         if self.train_data_path and self.valn_path:
             model_params += validation_cli
-            print("validation")
+            print("validation data path detected")
             print("training started")
             # Start the training
             try:       
@@ -330,7 +329,7 @@ class Summarizer:
 
         else:
             model_params += train_cli
-            print("train")
+            print("no validation data path provided")
             print("training started")
             # Start the training
             try:       
@@ -347,8 +346,9 @@ class Summarizer:
 
         # saving the finetuned model
         trained_model = os.path.join(self.output_path,"training")
-
-        # extracting user defined kwargs alone by removing these 6 default kwargs 
+        print(f'Saved the fine-tuned model to {os.path.join(self.output_path,"training")} folder')
+        
+        # extracting user defined kwargs 
         keys_to_delete = ['per_device_train_batch_size','per_device_eval_batch_size','max_source_length',
             'max_target_length','learning_rate','num_train_epochs']
         for key in keys_to_delete:
@@ -356,7 +356,7 @@ class Summarizer:
                 del kwargs[key]
 
         if self.train_prediction==True:
-            print("train prediction")
+            print("prediction on train dataset")
             #prediction folder path
             prediction_path = os.path.join(self.output_path,"prediction")
             #train prediction
@@ -377,8 +377,8 @@ class Summarizer:
 
         if self.val_prediction==True:
             if not valn_path:
-                raise NameError("Provide validation data path in the input for validation prediction")
-            print("validation prediction")
+                raise NameError("Provide validation data path for validation prediction")
+            print("prediction on validation data")
             #prediction folder path
             prediction_path = os.path.join(self.output_path,"prediction")
             #validation prediction
@@ -397,7 +397,7 @@ class Summarizer:
                 **kwargs
             )
         return
-            
+
     def predict(
         self,
         model_type: str = None,
@@ -449,7 +449,7 @@ class Summarizer:
             print("No model name specified. Considering default model : facebook/bart-large-cnn")
 
         if not model_type:
-            raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5' \n 2.'others'")
+            raise NameError("Provide model_type.If t5 model then model_type='t5' else 'others'.\nPossible values:\n1.'t5'\n2.'others'")
 
         #Predicting answers when context is provided as a text and summary_type is text
         if isinstance(context,str):
@@ -474,7 +474,7 @@ class Summarizer:
         self.output_path = output_path
         self.model_name = model_name
         self.model_type = model_type
-
+        
         if 'per_device_train_batch_size' in kwargs:
             self.per_device_train_batch_size = kwargs.get('per_device_train_batch_size')
         if 'per_device_eval_batch_size' in kwargs:

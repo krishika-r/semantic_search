@@ -83,6 +83,8 @@ def generate_jsonl(data :str, prediction_path :str, model_name :str, summary_typ
       
       #saving benchmark dataframe to csv
       benchmark_df.to_csv(os.path.join(prediction_path, f"{data_type}_data_benchmarks.csv"),index=False)
+      print(f'Saved the scores to {os.path.join(prediction_path, f"{data_type}_data_benchmarks.csv")}')
+      return
 
 
 
